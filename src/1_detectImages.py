@@ -147,14 +147,21 @@ def cleanData(jsondata):
       #clean = addMeta('Category',objects['Category'],clean)
       clean = addMeta('Tags',objects['_tags_simple'],clean)
       clean = addAllTags(objects,clean)
-      if (objects['Category'] in all_products):
+      #print (objects)
+      cat = ''
+      if 'Category' in objects: 
+        cat = objects['Category']
+      else:
+        cat = objects['Top Category']
+      if (cat in all_products):
         #if already in products, skip it
         pass
       else:
         clean = createProductName(clean)
+        clean['Category'] = cat
         clean['price'] = 10+random.randint(1,20)
         clean['brand'] = retailers[random.randint(0,len(retailers)-1)]
-        all_products[objects['Category']]=clean
+        all_products[cat]=clean
 
   return all_products
 
@@ -184,8 +191,9 @@ def process():
       original={}
       original['raw']=data
       original['image'] = image.replace('..\\','https://fashion.coveodemo.com//')
-      original['clean']=cleanData(data)
+      #print (data)
       if data is not None:
+        original['clean']=cleanData(data)
         updateJson(image, original)
       else:
         print("ERROR on Processing...")

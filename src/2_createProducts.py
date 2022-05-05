@@ -84,10 +84,10 @@ def getKey(key, jsondata):
 
 def createProductName(jsondata):
   #Color, Material, First SubCategory
-  title = getKey('Style',jsondata).split(';')[0]+' '+getKey('Color',jsondata)+' '+getKey('Material',jsondata)+' '+getKey('Subcategory',jsondata).split(';')[0]
-  title = title.replace('  ',' ')
-  jsondata['ProductTitle']=title.title()
-  return jsondata
+  title = getKey('Style',jsondata).split(';')[0]+' '+getKey('Color',jsondata).split(';')[0]+' '+getKey('Material',jsondata).split(';')[0]+' '+getKey('Subcategory',jsondata).split(';')[0]
+  title = title.replace('  ',' ').title()
+  #jsondata['ProductTitle']=title.title()
+  return title
 
 def cleanData(jsondata):
   all_products={}
@@ -113,10 +113,60 @@ def cleanData(jsondata):
 
   return all_products
 
+
+def createCategoriesPaths(categories):
+  catpath=''
+  catpaths=[]
+  for cat in categories:
+     if catpath=='':
+       catpath=cat #man
+       catpaths.append(catpath)
+     else:
+       catpath=catpath+'|'+cat
+       catpaths.append(catpath)
+  #catpaths = list(set(catpaths))
+  return catpaths
+
+def createCategoriesSlug(categories):
+  slug=[]
+  catpath=''
+  for cat in categories:
+    cat=cat.lower().replace(' ','-')
+    if catpath=='':
+      catpath=cat #man
+      slug.append(catpath)
+    else:
+      catpath=catpath+'/'+cat
+      slug.append(catpath)
+  
+  #slug = list(set(catpaths))
+
+  return slug
+
+def createCategories(jsondata):
+  categories=[]
+  genders=' and '.join(getKey('Gender',jsondata).split(';'))
+  categories.append(genders)
+  for cat in getKey('Category',jsondata).split('/'):
+      categories.append(cat)
+
+  return categories
+
+
+def createCategoriesNoGender(jsondata):
+  categories=[]
+  #genders=' and '.join(getKey('Gender',jsondata).split(';'))
+  #categories.append(genders)
+  for cat in getKey('Category',jsondata).split('/'):
+      categories.append(cat)
+
+  return categories
+
 def process():
   #Get All files
   total=0
   all_json=[]
+  all_keys=[]
   sku_counter=1
   images = glob.glob('..\\json\\*.json',recursive=True)
   for image in images:
@@ -127,16 +177,43 @@ def process():
       total = total+1
       print ("JSON: "+image+" ==> "+key)
       dataset = data['clean'][key]
-      dataset['image'] = data['image']
+      for datakey in dataset.keys():
+        if datakey not in all_keys:
+          all_keys.append(datakey)
+      data['image'] = data['image'].replace('\\','//')
+      data['image'] = data['image'].replace('//','/')
+      data['image'] = data['image'].replace('https:/','https://')
+      dataset['ec_images'] = [data['image']]
       dataset['sku'] = 'prt_'+f'{sku_counter:07}'
       dataset['permanentid'] = dataset['sku']
-
+      dataset["DocumentId"] = "https://fashion.coveodemo.com/pdp/"+dataset['sku']
+      dataset["DocumentType"]="Product"
+      dataset["FileExtension"]= ".html"
+      dataset["ObjectType"]= "Product"
+      dataset["cat_attributes"] = getKey("Tags",dataset)
+      dataset["cat_color"] = getKey("Color",dataset)
+      dataset["cat_gender"] = getKey("Gender",dataset)
+      dataset["cat_retailer"] = getKey("brand",dataset)
+      dataset["ec_brand"] = getKey("brand",dataset)
+      dataset["cat_categories"]=createCategories(dataset)
+      dataset["ec_category_no_gender"]=createCategoriesNoGender(dataset)
+      dataset["cat_slug"]=createCategoriesSlug(dataset["cat_categories"])
+      dataset["ec_category"]=createCategoriesPaths(dataset["cat_categories"])
+      dataset["ec_item_group_id"]=dataset['sku']
+      dataset["ec_price"] = getKey("price",dataset)
+      dataset["cat_features"] = getKey("Tags",dataset)
+      dataset["ec_product_id"]=dataset['sku']
+      dataset["ec_promo_price"]=getKey("price",dataset)
+      dataset["title"] = createProductName(dataset)
+      dataset["ec_name"] = dataset["title"]
       sku_counter+=1
       all_json.append(dataset)
       #break
 
   json_dump(all_json, Path('../outputs/products.json'), sort_keys=True)
   print("We are done!\n")
+  print("All keys:")
+  print(all_keys)
   print("Processed: "+str(total)+" results\n")
   
 try:
